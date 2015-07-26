@@ -1,0 +1,10 @@
+raster_tile_server_demo	1
+
+description
+	Demo showing a raster tile server which serves PNGs and provides a client to view them
+end
+
+requires
+	http_server
+	cam_db_swaf_professional_application
+end

@@ -1,0 +1,159 @@
+def_slotted_exemplar(
+	:http_server,
+	{
+		{:listener, _unset, :readable, :private},
+		{:stop, _false, :readable, :private},
+		{:count, 0, :writable, :private}
+	})
+$
+
+_method http_server.new()
+	_return _clone.init()
+_endmethod
+$
+
+_private _method http_server.init()
+	.listener << _unset
+	.stop << _false
+	.count << 0
+	
+	_return _self
+_endmethod
+$
+
+_method http_server.cycle(what)
+	.count +<< 1
+	_if .count > 2500
+	_then
+		.stop << _true
+	_endif
+_endmethod
+$
+
+_method http_server.stop<< new_value
+	.stop << new_value
+_endmethod
+$
+
+_method http_server.listen(port, handler)
+	.listener << tcpip_connection_stream.new(port,
+						 :input_class, external_text_input_stream,
+						 :output_class, external_binary_output_stream)
+	
+	_loop @over_connections
+		_self.cycle(:connection)
+		_if _self.stop _then _leave _endif
+		
+		connection << .listener.get()
+		_self.handle_connection(connection, handler)
+	_endloop
+	.listener.close()
+_endmethod
+$
+
+_private _method http_server.handle_connection(connection, handler)
+	_try _with e
+		_loop @over_keep_alive
+			_self.cycle(:keep_alive)
+			_if _self.stop _then _leave _endif
+			
+			# keep alive connection ?
+			close_connection? << _self.handle_single_request(connection, handler)
+			close_connection? << _true  # XXX DEBUG
+			_if close_connection? _then _leave @over_keep_alive _endif
+		_endloop
+		connection.close()
+	_when error
+		write(":error ", e.report_string)
+		# always close connection on error
+		connection.close()
+	_endtry
+_endmethod
+$
+
+_method http_server.handle_single_request(connection, handler)
+	_handling http_server_error _with _self.http_server_error_handler(connection)
+	_handling error             _with _self.error_handler(connection)
+	_dynamic !current_http_request!, !current_http_response!
+	
+	# build request
+	request << http_server_request.new_from_connection(connection)
+	!current_http_request! << request
+	
+	# build response
+	response << http_server_response.new(request, connection.output, request.version)
+	response.headers["Server"] << "SL Smallworld HTTP server 0.0.1"
+	!current_http_response! << response
+	
+	# process request
+	handler.handle_request(request, response)
+	
+	close_connection? << protocol = "HTTP/1.1" _andif
+			     request.headers["Connection"].default("Keep-Alive").lowercase <> "keep-alive" _orif
+			     response.headers["Connection"].default("Keep-Alive").lowercase <> "keep-alive"
+	
+	_return close_connection?
+_endmethod
+$
+
+_private _method http_server.http_server_error_handler(connection)
+	_return _proc @http_server_error_handler(cond)
+			stream << internal_text_output_stream.new()
+			!traceback!(stream)
+			str << stream.string
+			str << stream.string.substitute_string(write_string(newline_char), "<br />")
+			
+			_import connection
+			_dynamic !current_http_request!
+			http_version << _if !current_http_request! _isnt _unset
+					_then
+						>> !current_http_request!.version
+					_else
+						>> "HTTP/1.0"
+					_endif
+			data << _if cond.data.is_kind_of?(property_list)
+				_then
+					>> cond.data
+				_else
+					>> property_list.new_from(cond.data)
+				_endif
+			_if connection.output _isnt _unset
+			_then
+				response << http_server_response.new(!current_http_request!, connection.output, http_version)
+				response.send(data[:status_code], str)
+			_endif
+		_endproc
+_endmethod
+$
+
+_private _method http_server.error_handler(connection)
+	_return _proc @error_handler(cond)
+			stream << internal_text_output_stream.new()
+			!traceback!(stream)
+			str << stream.string
+			str << str.substitute_string(write_string(newline_char), "<br />")
+			
+			_import connection
+			_dynamic !current_http_request!
+			http_version << _if !current_http_request! _isnt _unset
+					_then
+						>> !current_http_request!.version
+					_else
+						>> "HTTP/1.0"
+					_endif
+			_if connection.output _isnt _unset
+			_then
+				response << http_server_response.new(!current_http_request!, connection.output, http_version)
+				response.send(500, str)
+			_endif
+		_endproc
+_endmethod
+$
+
+_method http_server.close()
+	_if .listener _isnt _unset
+	_then
+		.listener.close()
+	_endif
+_endmethod
+$

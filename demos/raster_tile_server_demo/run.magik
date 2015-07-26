@@ -1,0 +1,33 @@
+_package user
+$
+
+_block
+	_if _not sw_module_manager.module(:raster_tile_server_demo).loaded?
+	_then
+		sw_module_manager.load_module(:raster_tile_server_demo)
+	_endif
+_endblock
+$
+
+
+
+
+
+_block
+	_try _with cond
+		http_app << http_application.new()
+		http_app.add_middleware(http_params_parser.new())
+		http_app.add_middleware(access_log_middleware.new(!output!))
+		http_app.add_route(http_stop.new(:get, "/stop"))
+		http_app.add_route(file_server_route.new(:get, "/client/*", system.pathname_down(system.pathname_up(!source_file!), "resources\base\data\client")))
+		http_app.add_route(raster_tile_server_route.new(:get, "/tile", :gis, :|Electricity|))
+		http_app.listen(8081)
+	_when error
+		show(cond.report_string)
+		_if http_app _isnt _unset
+		_then
+			http_app.stop()
+		_endif
+	_endtry
+_endblock
+$

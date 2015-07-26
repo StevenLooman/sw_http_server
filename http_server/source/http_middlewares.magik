@@ -1,0 +1,75 @@
+def_slotted_exemplar(
+	:http_middleware,
+	{}
+)
+$
+
+_method http_middleware.new()
+	_return _clone.init()
+_endmethod
+$
+
+_method http_middleware.init()
+	_return _self
+_endmethod
+$
+
+_abstract _method http_middleware.handle(application, request, response)
+_endmethod
+$
+
+
+
+
+
+
+def_slotted_exemplar(
+	:http_params_parser,
+	{},
+	:http_middleware
+)
+$
+
+_method http_params_parser.handle(application, request, response)
+	_self.parse_get_params(request)
+	_self.parse_post_params(request)
+	
+	# merge get + post to form
+	request.data[:form] << request.data[:get].union(request.data[:post])
+	
+	_return _true
+_endmethod
+$
+
+_private _method http_params_parser.parse_form_urlencoded(line, props)
+	_for pair _over line.split_by(%&, _false).fast_elements()
+	_loop
+		(key, value) << (_scatter pair.split_by(%=, _false))
+		props[key.lowercase] << value
+	_endloop
+	_return props
+_endmethod
+$
+
+_private _method http_params_parser.parse_get_params(request)
+	get << request.data[:get] << equality_property_list.new()
+	from_idx << request.uri.index_of(%?)
+	to_idx << request.uri.index_of(%#).default(request.uri.size)
+	_if from_idx _isnt _unset
+	_then
+		length << to_idx - from_idx
+		part << request.uri.subseq(from_idx + 1, length)
+		_self.parse_form_urlencoded(part, get)
+	_endif
+_endmethod
+$
+
+_private _method http_params_parser.parse_post_params(request)
+	post << request.data[:post] << equality_property_list.new()
+	_if request.headers["Content-Type"] = "application/x-www-form-urlencoded"
+	_then
+		line << request.in_stream.get_line()
+		_self.parse_form_urlencoded(line, post)
+	_endif
+_endmethod
+$

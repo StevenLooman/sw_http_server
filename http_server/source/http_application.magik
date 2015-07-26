@@ -1,0 +1,97 @@
+def_slotted_exemplar(
+	:http_application,
+	{
+		{:middlewares, _unset},
+		{:settings, _unset},
+		{:routes, _unset},
+		{:server, _unset, :readable, :public},
+		{:thread, _unset, :readable, :public}
+	})
+$
+
+_method http_application.new()
+	_return _clone.init()
+_endmethod
+$
+
+_method http_application.init()
+	.middlewares << rope.new()
+	.settings << property_list.new()
+	.routes << rope.new()
+	.server << _unset
+	.thread << _unset
+	_return _self
+_endmethod
+$
+
+_method http_application.handle_request(request, response)
+	_self.apply_middlewares(request, response)
+	
+	# find matching route
+	route << _self.find_matching_route(request)
+	_if route _isnt _unset
+	_then
+		_return route.handle_request(_self, request, response)
+	_endif
+	
+	# no route matched: 404
+	_return response.send(404)
+_endmethod
+$
+
+_private _method http_application.apply_middlewares(request, response)
+	_for middleware _over .middlewares.fast_elements()
+	_loop
+		middleware.handle(_self, request, response)
+	_endloop
+_endmethod
+$
+
+_private _method http_application.find_matching_route(request)
+	method << request.method.lowercase.as_symbol()
+	path << request.path
+	
+	_for route _over .routes.fast_elements()
+	_loop
+		_if route.matches_request?(method, path)
+		_then
+			_return route
+		_endif
+	_endloop
+_endmethod
+$
+
+_method http_application.listen(port, _optional fork?)
+	.server << http_server.new()
+	_if fork? _is _false
+	_then
+		.server.listen(port, _self)
+	_else
+		.thread << _proc(app, server, port)
+				   server.listen(port, app)
+			   _endproc.fork(_self, .server, port)
+	_endif
+	_return _self
+_endmethod
+$
+
+_method http_application.add_route(route)
+	.routes.add(route)
+_endmethod
+$
+
+_method http_application.add_middleware(middleware)
+	.middlewares.add(middleware)
+_endmethod
+$
+
+_method http_application.stop()
+	.server.stop << _true
+	
+	# interrupt/stop server thread
+	_if .thread _isnt _unset
+	_then
+		.thread.condition_interrupt(:http_server_stop)
+	_endif
+_endmethod
+$

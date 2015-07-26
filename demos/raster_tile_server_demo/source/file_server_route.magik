@@ -1,0 +1,37 @@
+def_slotted_exemplar(
+	:file_server_route,
+	{
+		{:filesystem_path, _unset}
+	},
+	:http_route)
+$
+
+_method file_server_route.new(method, path, filesystem_path)
+	_return _clone.init(method, path, filesystem_path)
+_endmethod
+$
+
+_method file_server_route.init(method, path, filesystem_path)
+	_super.init(method, path)
+	.filesystem_path << filesystem_path
+	_return _self
+_endmethod
+$
+
+_method file_server_route.handle(application, request, response)
+	relative_path << request.path.subseq(.path.size)
+	_if relative_path.empty?
+	_then
+		relative_path << "index.html"
+	_endif
+	absolute_path << system.pathname_down(.filesystem_path, relative_path)
+	_if _not system.file_exists?(absolute_path)
+	_then
+		_return response.send(404)
+	_endif
+	
+	stream << external_binary_input_stream.new(absolute_path)
+	response.send(200, stream)
+	stream.close()
+_endmethod
+$

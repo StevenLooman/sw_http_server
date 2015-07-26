@@ -1,0 +1,40 @@
+_package user
+$
+
+def_slotted_exemplar(
+	:http_headers_test,
+	{},
+	{:test_case})
+$
+
+http_headers_test.define_shared_constant(
+	:crlf,
+	character.from_value(13) + character.from_value(10),
+	:public)
+$
+
+_method http_headers_test.test_1()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive"
+	
+	_self.assert(headers["Connection"], :|=|, "Keep-Alive")
+_endmethod
+$
+
+_method http_headers_test.test_2()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive1"
+	headers["Connection"] << "Keep-Alive2"
+	
+	_self.assert(headers["Connection"], :|=|, "Keep-Alive2")
+_endmethod
+$
+
+_method http_headers_test.test_3()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive1"
+	headers["connection"] << "Keep-Alive2"
+	
+	_self.assert(headers["Connection"], :|=|, "Keep-Alive2")
+_endmethod
+$

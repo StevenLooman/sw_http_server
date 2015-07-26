@@ -1,0 +1,12 @@
+_package user
+$
+
+_method number_mixin.loge
+	_return _self.log10 / float.e.log10
+_endmethod
+$
+
+_method number_mixin.sinh
+	_return 0.5 * (float.e ** _self - float.e ** -_self)
+_endmethod
+$

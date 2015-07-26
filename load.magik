@@ -1,0 +1,13 @@
+_package user
+
+_block
+	_local l_http_path << system.pathname_up(!source_file!, 1)
+	smallworld_product.add_product(l_http_path)
+	_local l_munit_path << system.pathname_down(system.pathname_up(!source_file!, 2), "munit")
+	smallworld_product.add_product(l_munit_path)
+	
+	sw_module_manager.load_module(:http_server_tests, _unset, :save_magikc?, _false, :force_reload?, _true, :update_image?, _false)
+	sw_module_manager.load_module(:munit_gui, _unset, :save_magikc?, _false, :force_reload?, _true, :update_image?, _false)
+	get_global_value(:test_runner_dialog).open()
+_endblock
+$

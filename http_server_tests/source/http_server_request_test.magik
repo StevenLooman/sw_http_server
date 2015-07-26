@@ -1,0 +1,58 @@
+_package user
+$
+
+def_slotted_exemplar(
+	:http_server_request_test,
+	{},
+	{:test_case})
+$
+
+http_server_request_test.define_shared_constant(
+	:crlf,
+	character.from_value(13) + character.from_value(10),
+	:public)
+$
+
+_method http_server_request_test.test_parse_request_1()
+	data << write_string("GET / HTTP/1.1", _self.crlf,
+			     "", _self.crlf)
+	in << internal_text_input_stream.new(data)
+	
+	request << http_server_request.new(in)
+	_self.assert(request.method,  :|=|, "GET")
+	_self.assert(request.uri,     :|=|, "/")
+	_self.assert(request.version, :|=|, "HTTP/1.1")
+_endmethod
+$
+
+_method http_server_request_test.test_parse_request_2()
+	data << write_string("GET / HTTP/1.1", _self.crlf,
+			     "Connection:Keep-Alive", _self.crlf,
+			     "", _self.crlf)
+	in << internal_text_input_stream.new(data)
+	
+	request << http_server_request.new(in)
+	_self.assert(request.method,  :|=|, "GET")
+	_self.assert(request.uri,     :|=|, "/")
+	_self.assert(request.version, :|=|, "HTTP/1.1")
+	_self.assert(request.headers["Connection"], :|=|, "Keep-Alive")
+	_self.assert(request.headers["connection"], :|=|, "Keep-Alive")
+_endmethod
+$
+
+_method http_server_request_test.test_parse_invalid_request_1()
+	data << write_string("", _self.crlf)
+	in << internal_text_input_stream.new(data)
+	
+	_self.assert_raised_condition(:http_server_error, http_server_request, :|new()|, {in})
+_endmethod
+$
+
+_method http_server_request_test.test_parse_invalid_request_2()
+	data << write_string("GET HTTP/1.1", _self.crlf,
+			     "", _self.crlf)
+	in << internal_text_input_stream.new(data)
+	
+	_self.assert_raised_condition(:http_server_error, http_server_request, :|new()|, {in})
+_endmethod
+$

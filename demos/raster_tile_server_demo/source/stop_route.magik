@@ -1,0 +1,13 @@
+_package user
+$
+
+def_slotted_exemplar(
+	:stop_route,
+	{},
+	:http_route)
+$
+
+_method stop_route.handle(application, request, response)
+	application.stop()
+_endmethod
+$

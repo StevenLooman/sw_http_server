@@ -1,0 +1,23 @@
+http_server_tests	1
+
+description
+	HTTP Server Tests
+end
+
+requires
+	http_server
+	munit_base
+end
+
+tests_modules
+	http_server
+end
+
+test
+	name		http_server_tests
+	framework	munit
+	args 		http_server_tests
+end
+
+hidden
+language en_gb

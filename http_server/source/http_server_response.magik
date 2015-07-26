@@ -1,0 +1,161 @@
+def_slotted_exemplar(
+	:http_server_response,
+	{
+		{:request, _unset, :readable, :public},
+		{:out_stream, _unset, :readable, :private},
+		{:version, _unset, :readable, :public},
+		{:status_code,  _unset, :readable, :public},
+		{:headers, _unset, :readable, :public},
+		{:size, _unset, :readable, :public}
+	})
+$
+
+http_server_response.define_shared_constant(
+	:crlf,
+	character.from_value(13) + character.from_value(10),
+	:private)
+$
+
+_method http_server_response.new(request, out_stream, version)
+	_return _clone.init(request, out_stream, version)
+_endmethod
+$
+
+_private _method http_server_response.init(request, out_stream, version)
+	.request << request
+	.out_stream << out_stream
+	.version << version
+	.headers << http_headers.new()
+	.size << 0
+	_return _self
+_endmethod
+$
+
+_method http_server_response.send(status_code, _optional body)
+	_self.changed(:pre_send)
+	.status_code << status_code
+	
+	response_descr << "???"
+	_if (response << _self.responses[status_code]) _isnt _unset
+	_then
+		response_descr << response[1]
+		_if body _is _unset
+		_then
+			body << response[2]
+		_endif
+	_endif
+	
+	_if body.is_kind_of?(ro_simple_charindex_mixin)
+	_then
+		tc << text_converter.new(:utf8, _true)
+		translated << tc.translate(body)
+		
+		.headers["Content-Length"] << translated.size
+		#.headers["Content-Encoding"] << "text/html; charset=utf-8"
+		body_stream << internal_text_input_stream.new(translated)
+	_elif body.is_kind_of?(input_stream_mixin)
+	_then
+		_if body.responds_to?(:size)
+		_then
+			.headers["Content-Length"] << body.size
+		_endif
+		
+		# do nothing
+		body_stream << body
+	_else
+		# hope for the best, might crash
+		byte_stream << body
+	_endif
+	
+	_self.send_status_line(status_code, response_descr)
+	_self.send_headers()
+	_self.send_body(body_stream)
+	
+	.out_stream.flush()
+	
+	_self.changed(:post_send)
+_endmethod
+$
+
+_private _method http_server_response.send_status_line(status_code, response_description)
+	line << write_string(.version, " ", status_code, " ", response_description, _self.crlf)
+	.size +<< line.size
+	.out_stream.put_ascii_chars(line)
+_endmethod
+$
+
+_private _method http_server_response.send_headers()
+	.headers.write_to_stream(.out_stream)
+_endmethod
+$
+
+_private _method http_server_response.send_body(body_stream)
+	# XXX TODO: why do we split it up in chunks ?
+	_constant chunk_size << 1024
+	_loop
+		chunk << body_stream.get_n(chunk_size)
+		_if chunk.empty?
+		_then
+			_leave
+		_endif
+		.size +<< chunk.size
+		.out_stream.put_subseq(chunk)
+	_endloop
+_endmethod
+$
+
+#_private _method http_server_response.send_body(body_stream)
+#	.out_stream.put_subseq(body_stream)
+#_endmethod
+#$
+
+_block
+	_local responses << hash_table.new()
+	responses[100] << {"Continue", "Request received, please continue"}
+	responses[101] << {"Switching Protocols", "Switching to new protocol; obey Upgrade header"}
+	
+	responses[200] << {"OK", "Request fulfilled, document follows"}
+	responses[201] << {"Created", "Document created, URL follows"}
+	responses[202] << {"Accepted", "Request accepted, processing continues off-line"}
+	responses[203] << {"Non-Authoritative Information", "Request fulfilled from cache"}
+	responses[204] << {"No Content", "Request fulfilled, nothing follows"}
+	responses[205] << {"Reset Content", "Clear input form for further input."}
+	responses[206] << {"Partial Content", "Partial content follows."}
+	
+	responses[300] << {"Multiple Choices", "Object has several resources -- see URI list"}
+	responses[301] << {"Moved Permanently", "Object moved permanently -- see URI list"}
+	responses[302] << {"Found", "Object moved temporarily -- see URI list"}
+	responses[303] << {"See Other", "Object moved -- see Method and URL list"}
+	responses[304] << {"Not Modified", "Document has not changed since given time"}
+	responses[305] << {"Use Proxy", "You must use proxy specified in Location to access this resource."}
+	responses[307] << {"Temporary Redirect", "Object moved temporarily -- see URI list"}
+	
+	responses[400] << {"Bad Request", "Bad request syntax or unsupported method"}
+	responses[401] << {"Unauthorized", "No permission -- see authorization schemes"}
+	responses[402] << {"Payment Required", "No payment -- see charging schemes"}
+	responses[403] << {"Forbidden", "Request forbidden -- authorization will not help"}
+	responses[404] << {"Not Found", "Nothing matches the given URI"}
+	responses[405] << {"Method Not Allowed", "Specified method is invalid for this resource."}
+	responses[406] << {"Not Acceptable", "URI not available in preferred format."}
+	responses[407] << {"Proxy Authentication Required", "You must authenticate with this proxy before proceeding."}
+	responses[408] << {"Request Timeout", "Request timed out; try again later."}
+	responses[409] << {"Conflict", "Request conflict."}
+	responses[410] << {"Gone", "URI no longer exists and has been permanently removed."}
+	responses[411] << {"Length Required", "Client must specify Content-Length."}
+	responses[412] << {"Precondition Failed", "Precondition in headers is false."}
+	responses[413] << {"Request Entity Too Large", "Entity is too large."}
+	responses[414] << {"Request-URI Too Long", "URI is too long."}
+	responses[415] << {"Unsupported Media Type", "Entity body in unsupported format."}
+	responses[416] << {"Requested Range Not Satisfiable", "Cannot satisfy request range."}
+	responses[417] << {"Expectation Failed", "Expect condition could not be satisfied."}
+	
+	responses[500] << {"Internal Server Error", "Server got itself in trouble"}
+	responses[501] << {"Not Implemented", "Server does not support this operation"}
+	responses[502] << {"Bad Gateway", "Invalid responses from another server/proxy."}
+	responses[503] << {"Service Unavailable", "The server cannot process the request due to a high load"}
+	responses[504] << {"Gateway Timeout", "The gateway server did not receive a timely response"}
+	responses[505] << {"HTTP Version Not Supported", "Cannot fulfill request."}
+	
+	http_server_response.define_shared_constant(:responses, responses, _false)
+_endblock
+$

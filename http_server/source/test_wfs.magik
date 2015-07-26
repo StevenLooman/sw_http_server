@@ -1,0 +1,472 @@
+# GetCapabilities
+# DescribeFeatureType
+# GetFeature
+
+def_slotted_exemplar(
+	:wfs_route,
+	{
+		{:collections, _unset, :writable, :public}
+	},
+	:http_route)
+$
+
+_method wfs_route.new(method, path)
+	_return _clone.init(method, path)
+_endmethod
+$
+
+_method wfs_route.init(method, path)
+	_super.init(method, path)
+	_self.collections << set.new()
+	
+	# mandatory, otherwise no namespaces will be written
+	simple_xml.sys!slot(:process_ns?) << _true
+	
+	_return _self
+_endmethod
+$
+
+_method wfs_route.handle(request, response)
+	show(:wfs_route, :handle)
+	
+	# service = WFS
+	_local service << request.data[:get]["service"].default("")
+	_if service.lowercase <> "wfs"
+	_then
+		_return response.send(501)
+	_endif
+	
+	# version = 1.0.0
+	_local version << request.data[:get]["version"].default("")
+	_if version <> "1.0.0"
+	_then
+		_return response.send(501, "Only WFS 1.0.0 is supported")
+	_endif
+	
+	# request
+	_local req << request.data[:get]["request"]
+	_if req = "GetCapabilities"
+	_then
+		_return _self.handle_get_capabilities(request, response)
+	_elif req = "DescribeFeatureType"
+	_then
+		_return _self.handle_describe_feature_type(request, response)
+	_elif req = "GetFeature"
+	_then
+		_return _self.handle_get_feature(request, response)		
+	_else
+		_return response.send(501)
+	_endif
+
+	show(service, version, req)
+_endmethod
+$
+
+wfs_route.define_shared_constant(
+	:namespaces,
+	equality_property_list.new_with(
+		"http://www.opengis.net/wfs", :||,
+#		"http://www.opengis.net/wfs", :wfs,
+		"http://www.w3.org/2001/XMLSchema-instance", :xsi,
+#		"http://www.opengis.net/ows", :ows,
+#		"http://www.opengis.net/gml", :gml,
+		"http://www.opengis.net/ogc", :ogc,
+		"http://www.w3.org/1999/xlink", :xlink,
+		"http://www.w3.org/2001/XMLSchema", :xsd
+			       ),
+	:private)
+$
+
+_method wfs_route.handle_get_capabilities(request, response)
+	_local root <<
+		simple_xml_thing_ns.new(:|WFS_Capabilities|,
+					{
+						_self.xml_capabilities_service,
+						_self.xml_capabilities_capability,
+						_self.xml_capabilities_feature_type_list,
+						_self.xml_capabilities_filter_capabilities
+					},
+					{
+						:|xsi:schemaLocation|, "http://www.opengis.net/wfs http://suite.opengeo.org/geoserver/schemas/wfs/1.0.0/wfs.xsd",
+						:version, "1.0.0"
+					},
+					_self.namespaces)
+	
+	_local stream << internal_text_output_stream.new()
+	simple_xml.write_element(stream, root)
+	response.headers["Content-Type"] << "application/xml"
+	_return response.send(200, stream.string)
+_endmethod
+$
+
+_private _method wfs_route.xml_capabilities_service
+	_local service_identification <<
+		simple_xml_thing_ns.new(:|Service|,
+					{
+						simple_xml_thing_ns.new(:|Name|, "WFS"),
+						simple_xml_thing_ns.new(:|Title|, "WFS server for Smallworld")
+					})
+	_return service_identification
+_endmethod
+$
+
+_private _method wfs_route.xml_capabilities_capability
+	_local capability <<
+		simple_xml_thing_ns.new(:|Request|,
+					{
+						simple_xml_thing_ns.new(:|GetCapabilities|,
+									{
+										simple_xml_thing_ns.new( :|DCPType|,
+													{
+														simple_xml_thing_ns.new(:|HTTP|,
+																	{
+																		simple_xml_thing_ns.new(:|Get|,
+																					{},
+																					{
+																						:|onlineResource|, "http://localhost:8085/wfs?request=GetCapabilities"
+																					})
+																	})
+													})
+									}),
+						simple_xml_thing_ns.new(:|DescribeFeatureType|,
+									{
+										simple_xml_thing_ns.new(:|SchemaDescriptionLanguage|,
+													{
+													simple_xml_thing_ns.new(:|XMLSCHEMA|)	
+													}),
+										simple_xml_thing_ns.new(:|DCPType|,
+													{
+														simple_xml_thing_ns.new(:|HTTP|,
+																	{
+																		simple_xml_thing_ns.new(:|Get|,
+																					{},
+																					{
+																						:|onlineResource|, "http://localhost:8085/wfs?request=DescribeFeatureType"
+																					})
+																	})
+													})
+									}),
+						simple_xml_thing_ns.new(:|GetFeature|,
+									{
+										simple_xml_thing_ns.new(:|ResultFormat|,
+													{
+														simple_xml_thing_ns.new(:|GML2|)
+													}),
+										simple_xml_thing_ns.new(:|DCPType|,
+													{
+														simple_xml_thing_ns.new(:|HTTP|,
+																	{
+																		simple_xml_thing_ns.new(:|Get|,
+																					{},
+																					{
+																						:|onlineResource|, "http://localhost:8085/wfs?request=GetFeature"
+																					})
+																	})
+													})
+									})
+					})
+	_return capability
+_endmethod
+$
+
+_private _method wfs_route.xml_capabilities_feature_type_list
+	_local feature_type_list <<
+		simple_xml_thing_ns.new(:|FeatureTypeList|,
+					{
+						simple_xml_thing_ns.new(:|Operations|,
+									{
+										simple_xml_thing_ns.new(:|Operation|, "Query")
+									}),
+						_scatter _self.xml_capabilities_feature_types
+					})
+	_return feature_type_list
+_endmethod
+$
+
+_private _method wfs_route.xml_capabilities_feature_types
+	_local feature_types << rope.new()
+	_for collection _over _self.collections.fast_elements()
+	_loop
+		_local world << collection.source_view.world
+		_local source_cs << world.coordinate_system
+		_local target_cs << _self.coordinate_systems[source_cs.name.as_symbol()]
+		
+		_local ft << simple_xml_thing.new(:|FeatureType|,
+						  {
+							  simple_xml_thing.new(:|Name|, collection.name),
+							  simple_xml_thing.new(:|Title|, collection.external_name),
+							  simple_xml_thing.new(:|SRS|, target_cs[:epsg])
+						  })
+		feature_types.add(ft)
+	_endloop
+	
+	_return feature_types
+_endmethod
+$
+
+_private _method wfs_route.xml_capabilities_filter_capabilities
+	_local ns << "http://www.opengis.net/ogc" + xml_parse_acp.name_separator
+	_local filter_capabilities <<
+		simple_xml_thing_ns.new(ns + :|Filter_Capabilities|,
+					{
+						simple_xml_thing_ns.new(ns + :|Spatial_Capabilities|,
+									{
+									}),
+						simple_xml_thing_ns.new(ns + :|Scalar_Capabilities|,
+									{
+									})
+					})
+
+	_return filter_capabilities
+_endmethod
+$
+
+_method wfs_route.handle_describe_feature_type(request, response)
+	_local typename << request.data[:get]["typename"]
+	_local collection << _unset
+	_for col _over _self.collections.fast_elements()
+	_loop
+		_if col.name = typename _then
+			collection << col
+			_leave
+		_endif
+	_endloop
+	
+	_if collection _is _unset _then
+		# XXX: TODO: send ows:ExceptionReport
+		_return response.send(404)
+	_endif
+	
+	_local ns << "http://www.w3.org/2001/XMLSchema" + xml_parse_acp.name_separator
+	_local root <<
+		simple_xml_thing_ns.new(ns + :|schema|,
+					{
+						simple_xml_thing_ns.new(ns + :|import|,
+									{},
+									{
+										:namespace, "http://www.opengis.net/gml",
+										:schemaLocation, "http://suite.opengeo.org/geoserver/schemas/gml/3.1.1/base/gml.xsd"
+									}),
+						simple_xml_thing_ns.new(ns + :|complexType|,
+									{
+										simple_xml_thing_ns.new(ns + :|complexContent|,
+													{
+														simple_xml_thing_ns.new(ns + :|extension|,
+																	{
+																		_self.xml_feature_type_fields(collection)
+																	},
+																	{
+																		:base, "gml:AbstractFeatureType"
+																	})
+													})
+									},
+									{
+										:name, collection.name + "Type"
+									}),
+						simple_xml_thing_ns.new(ns + :|element|,
+									{},
+									{
+										:name, collection.name,
+										:substitutionGroup, "gml:_Feature",
+										:type, collection.name + "Type"
+									})
+					},
+					{},
+					_self.namespaces)
+	
+	_local stream << internal_text_output_stream.new()
+	simple_xml.write_element(stream, root)
+	response.headers["Content-Type"] << "application/xml"
+	_return response.send(200, stream.string)
+_endmethod
+$
+
+_private _method wfs_route.xml_feature_type_fields(type)
+	_local ns << "http://www.w3.org/2001/XMLSchema" + xml_parse_acp.name_separator
+	_local sequence << simple_xml_thing_ns.new(ns + :sequence)
+	_for field _over type.visible_fields.fast_elements() _loop
+		_local field_type <<
+			_if field.class_name _is :dd_geom_field _then
+				>> _if field.geom_type _is :chain _orif
+				       field.geom_type _is :simple_chain _then
+					>> "gml:LineString"
+				   _elif field.geom_type _is :point _orif
+					 field.geom_type _is :simple_point _then
+					>> "gml:Point"
+				   _elif field.geom_type _is :area _orif
+					 field.geom_type _is :simple_area _then
+					>> "gml:Polygon"
+				   _endif
+			_else
+				>> "xsd:string"
+			_endif
+		
+		_local el <<
+			simple_xml_thing_ns.new(ns + :element,
+						{},
+						{
+							:|minOccurs|, "0",
+							:|maxOccurs|, "1",
+							:|name|, field.name,
+							:|nillable|, "true",
+							:|type|, field_type
+						}
+					    )
+		sequence.elements.add(el)
+	_endloop
+	_return sequence
+_endmethod
+$
+
+_method wfs_route.handle_get_feature(request, response)
+	_local typename << request.data[:get]["typename"]
+	_local featureid << request.data[:get]["featureid"]
+	_if typename _is _unset _then
+		_return response.send(400)
+	_endif
+	
+	_local selection << col(typename)
+	_if featureid _isnt _unset
+	_then
+		selection << selection.predicate.eq(:id, featureid)
+	_endif
+	
+	# build response
+	_local root <<
+		simple_xml_thing_ns.new("http://www.opengis.net/wfs" + xml_parse_acp.name_separator + :|FeatureCollection|,
+					_self.gml_get_features(selection),
+					{},
+					_self.namespaces)
+	
+	_local stream << internal_text_output_stream.new()
+	simple_xml.write_element(stream, root)
+	response.headers["Content-Type"] << "application/xml"
+	_return response.send(200, stream.string)
+_endmethod
+$
+
+_private _method wfs_route.gml_get_features(selection)
+	# XXX: TODO: do something: xml_stream.write_collection(..),
+	# parse xml and return elements?
+	# xml'i-fy
+	_local stream << internal_text_output_stream.new()
+	_local xml_stream << xml_output_stream.new(stream)
+	_local xml_col_descr << xml_collection_descriptor.new(
+					selection,
+					:format, xml_gml_output_format, # GML2
+					:field_list, {:spanning, :ligging_vb},
+					:want_coords?, _true)
+	selection << selection.select(predicate.le(:id, 984699))
+	xml_stream.write_collection(selection, xml_col_descr)
+	
+	_local in_stream << internal_text_input_stream.new(stream.string)
+	_local doc << simple_xml.read_document_from(in_stream)
+	_return doc.elements
+_endmethod
+$
+
+wfs_route.define_shared_constant(
+	:coordinate_systems,
+	property_list.new_with(
+		:netherlands_rd_nap_mm, property_list.new_with(
+						:epsg, "EPSG:28992",
+						:transform, transform.new_converting_cs_to_cs(
+								    kdb.world.coordinate_system,
+								    coordinate_system.new_from(kdb.world.coordinate_system, :m)
+								      )
+						      )
+		      ),
+	:public
+)
+$
+
+
+
+_block
+	_try _with cond
+		route << wfs_route.new(:get, "/wfs")
+		route.collections.add(col(:e_kv04_kabel))
+		route.collections.add(col(:e_kv04_leveringspunt_pri))
+		http_app << http_application.new()
+		http_app.add_middleware(http_params_parser.new())
+		http_app.add_route(route)
+		server << http_app.listen(8085)
+		#thread << http_app.listen_threaded(8085)
+	_when error
+		show(:error, error)
+		server.listener.close()
+	_endtry
+_endblock
+$
+
+
+#_block
+#	collection << col(:e_station)
+#	rs_desc << recordset_descriptor.new(collection)
+#	geom_fields << {}
+#	join_fields << {}
+#	props << property_list.new_with(
+#			       :additional_fields, {},
+#			       :want_coords?, _false,
+#			       :want_bounds?, _false,
+#			       :field_list, {}
+#			       )
+#	
+#	template << xml_gml_output_format.make_record_template(
+#			    collection,
+#			    rs_desc,
+#			    geom_fields,
+#			    join_fields,
+#			    props)
+#_endblock
+#$
+
+#_block
+#	sel << col(:e_kv04_kabel).select(predicate.eq(:id, 984621) _or predicate.eq(:id, 984636))
+#	stream << internal_text_output_stream.new()
+#	xml_stream << xml_output_stream.new(stream)
+#	xml_col_descr << xml_collection_descriptor.new(
+#				 sel,
+#				 :format, xml_gml_output_format, # GML2
+#				 :field_list, {:spanning, :ligging_vb},
+#				 :want_coords?, _true)
+#	xml_stream.write_collection(sel, xml_col_descr)
+#	xml << stream.string
+#	write(stream.string)
+#_endblock
+#$
+
+#def_slotted_exemplar(
+#	:xml_gml311_output_format,
+#	{},
+#	{
+#		:xml_gml_output_format
+#	})
+#$
+#
+#_method xml_gml311_output_format.feature_element
+#	_return "gml:feature"
+#_endmethod
+#$
+
+#_block
+#	sel << col(:e_kv04_kabel).select(predicate.eq(:id, 984621))
+#	stream << internal_text_output_stream.new()
+#	xml_stream << xml_output_stream.new(stream)
+#	xml_col_descr << xml_collection_descriptor.new(
+#				 sel,
+#				 :format, xml_gml311_output_format, # GML 3.1.1
+#				 :field_list, {:spanning, :ligging_vb},
+#				 :want_coords?, _true)
+#	xml_stream.write_collection(sel, xml_col_descr)
+#	write(stream.string)
+#_endblock
+#$
+
+
+# http://suite.opengeo.org/geoserver/wfs?service=wfs&version=1.0.0&request=GetCapabilities
+# http://suite.opengeo.org/geoserver/wfs?service=wfs&version=1.0.0&request=DescribeFeatureType&typename=usa:states
+# http://suite.opengeo.org/geoserver/wfs?service=wfs&version=1.0.0&request=GetFeature&typename=usa:states&featureid=states.39&MAXFEATURES=1
+# http://suite.opengeo.org/geoserver/wfs?service=wfs&version=1.0.0&request=GetFeature&typename=usa:states&featureid=states.39&MAXFEATURES=1&outputFormat=GML2
+
+# $ gdal/apps/ogrinfo.exe --debug on -ro WFS:http://localhost:8085/wfs

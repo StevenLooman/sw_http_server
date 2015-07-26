@@ -1,0 +1,41 @@
+_package user
+$
+
+# from: http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Python
+def_slotted_exemplar(
+	:google_projection,
+	{})
+$
+
+_method google_projection.deg2num(zoom, lat_deg, lon_deg)
+	lat_rad << lat_deg.degrees_to_radians
+	n << 2.0 ** zoom
+	x_tile << ((lon_deg + 180.0) / 360.0 * n).floor
+	y_tile << ((1.0 - (lat_rad.tan + (1 / lat_rad.cos)).loge / float.pi) / 2.0 * n).floor
+	_return {x_tile, y_tile}
+_endmethod
+$
+
+_method google_projection.num2deg(zoom, x_tile, y_tile)
+	n << 2.0 ** zoom
+	lon_deg << x_tile / n * 360.0 - 180.0
+	lat_rad << (float.pi * (1.0 - 2.0 * y_tile / n)).sinh.atan
+	lat_deg << lat_rad.radians_to_degrees
+	_return {lat_deg, lon_deg}
+_endmethod
+$
+
+_method google_projection.num2deg_coord(zoom, x, y)
+	(lat, lon) << (_scatter _self.num2deg(zoom, x, y))
+	_return coordinate.new(lon, lat)
+_endmethod
+$
+
+_method google_projection.from_tile_to_ll_bounds(zoom, x, y)
+	latlon_0 << _self.num2deg(zoom, x, y)
+	latlon_1 << _self.num2deg(zoom, x + 1, y + 1)
+	
+	_return bounding_box.new(latlon_0[2], latlon_0[1],
+				 latlon_1[2], latlon_1[1])
+_endmethod
+$

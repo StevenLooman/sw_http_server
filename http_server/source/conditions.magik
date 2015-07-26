@@ -1,0 +1,5 @@
+_block
+	condition.define_condition(:http_server_stop, :information, {})
+	condition.define_condition(:http_server_error, :error, {:status_code, :string})
+_endblock
+$

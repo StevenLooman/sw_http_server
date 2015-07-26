@@ -1,0 +1,24 @@
+_package user
+$
+
+_pragma(classify_level=basic)
+_method map_view.trigger_post_render( )
+	##
+	## Causes the post render sets to be re-fetched and
+	## rendered. Plugins can use this protocol if they wish a
+	## change to the post_render_sets to be made visible on this
+	## view alone.
+	##
+	## A side effect of calling this protocol is to refresh the
+	## transient drawn data.
+	##
+	#
+	# Since fetching the post-render sets can be time consuming we
+	# spawn a thread
+	render_proc << _proc @trigger_post_renderer( me )
+			       me.int!trigger_post_render( )
+		       _endproc
+	#render_proc.fork_at( _thisthread.vm_priority - 1, _self )
+	render_proc(_self)  # prevent spawning a threat
+_endmethod
+$

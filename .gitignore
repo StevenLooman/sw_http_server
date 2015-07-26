@@ -1,0 +1,8 @@
+.svn/
+
+*.magikc
+*.msgc
+
+*.swp
+*~
+\#*\#

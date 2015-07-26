@@ -1,0 +1,77 @@
+_package user
+$
+
+def_slotted_exemplar(
+	:instant_render_controller,
+	{
+		{:owner, _unset},
+		{:state, _unset}
+	})
+$
+
+_method instant_render_controller.new(owner)
+	_return _clone.init(owner)
+_endmethod
+$
+
+_private _method instant_render_controller.init(owner)
+	.owner << owner
+	.state << :idle
+	_return _self
+_endmethod
+$
+
+instant_render_controller.define_shared_constant(
+	:next_op,
+	render_controller.sys!perform(:next_op),
+	:public)
+$
+
+_method instant_render_controller.enqueue_render_operations(operations_vec, want_interrupt?)
+	next_op << _self.next_op
+	.state << :idle
+	
+	controller_queue << queue.new_with({:render_sans_interrupt, _scatter operations_vec})
+	render_queue << queue.new()
+	_for to_do _over controller_queue.elements()
+	_loop
+		(instruction, _gather data) << (_scatter to_do)
+		_if (ops << next_op[instruction, .state]) _is _unset _andif
+		    (ops << next_op[instruction, :backstop]) _is _unset
+		_then
+			_return
+		_endif
+		
+		_for op _over ops.fast_elements()
+		_loop
+			_if op _is :enqueue
+			_then
+				render_queue.add_all(data)
+			_elif op _is :do_render
+			_then
+				.state << :rendering
+				_if _not render_queue.empty?
+				_then
+					t << render_queue.next()
+					.owner.run_controlled_render(t, render_queue)
+				_endif
+				controller_queue.add({:end_rendering})
+			_elif op _is :clear_queue
+			_then
+				render_queue << queue.new()
+			_elif op _is :end_render
+			_then
+				.state << :idle
+			_endif
+		_endloop
+	_endloop
+_endmethod
+$
+
+_method instant_render_controller.interrupt_render(_optional abort?)
+_endmethod
+$
+
+_method instant_render_controller.terminate()
+_endmethod
+$

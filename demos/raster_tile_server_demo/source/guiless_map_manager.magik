@@ -1,0 +1,24 @@
+def_slotted_exemplar(:guiless_map_manager,
+		     {
+			     {:current_map_view, _unset}
+		     },
+		     :map_manager)
+$
+
+_method guiless_map_manager.current_map_view << p_map_view
+	.current_map_view << p_map_view
+_endmethod
+$
+
+_method guiless_map_manager.current_map
+	_if .current_map_view _isnt _unset
+	_then
+		_return .current_map_view.map
+	_endif
+_endmethod
+$
+
+_method guiless_map_manager.current_map_view
+	_return .current_map_view
+_endmethod
+$

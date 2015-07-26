@@ -1,0 +1,77 @@
+def_slotted_exemplar(
+	:http_route,
+	{
+		{:method, _unset, :writable, :public},
+		{:path, _unset, :writable, :public},
+		{:middlewares, _unset, :writable, :public}
+	})
+$
+
+_method http_route.new(method, path, _optional middlewares)
+	_return _clone.init(method, path, middlewares)
+_endmethod
+$
+
+_method http_route.init(method, path, _optional middlewares)
+	_self.method << method
+	_self.path << path
+	_self.middlewares << middlewares.default({})
+	_return _self
+_endmethod
+$
+
+_method http_route.matches_request?(method, path)
+	# ensure http method is the same
+	_if method _isnt _self.method _then
+		_return _false
+	_endif
+	
+	route_path << _self.split_path(_self.path)
+	request_path << _self.split_path(path)
+	
+	# ensure path is the alike or same
+	_if request_path.size _isnt route_path.size _then
+		_return _false
+	_endif
+	
+	_for idx _over 1.upto(route_path.size)
+	_loop
+		_if route_path[idx] = "*"
+		_then
+			_continue
+		_endif
+		_if route_path[idx] <> request_path[idx]
+		_then
+			_return _false
+		_endif
+	_endloop
+	
+	_return _true
+_endmethod
+$
+
+_private _method http_route.split_path(path)
+	_return path.split_by(%/)
+_endmethod
+$
+
+_method http_route.handle_request(application, request, response)
+	_self.apply_middlewares(application, request, response)
+	_self.handle(application, request, response)
+_endmethod
+$
+
+_private _method http_route.apply_middlewares(application, request, response)
+	_for middleware _over .middlewares.fast_elements()
+	_loop
+		middleware.handle(application, request, response)
+	_endloop
+_endmethod
+$
+
+_abstract _method http_route.handle(request, response)
+	##
+	## Handle the request
+	##
+_endmethod
+$

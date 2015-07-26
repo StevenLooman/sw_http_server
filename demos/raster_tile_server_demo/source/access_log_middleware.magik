@@ -1,0 +1,55 @@
+def_slotted_exemplar(
+	:access_log_middleware,
+	{
+		{:stream, _unset}
+	},
+	:http_middleware)
+$
+
+_method access_log_middleware.new(stream)
+	_return _clone.init(stream)
+_endmethod
+$
+
+_private _method access_log_middleware.init(stream)
+	.stream << stream
+	_return _self
+_endmethod
+$
+
+access_log_middleware.define_shared_constant(
+	:date_time_format,
+	date_time_format.new_with_properties(:date_format_string, "#Y#m#d_#H#M#S"),
+	:public)
+$
+
+_method access_log_middleware.handle(application, request, response)
+	response.add_dependent(_self, :post_send)
+_endmethod
+$
+
+_method access_log_middleware.note_change(who, what, _gather data)
+	_if who.is_kind_of?(http_server_response)
+	_then
+		response << who
+		response.remove_dependent(_self)
+
+		_self.report(response)
+	_endif
+_endmethod
+$
+
+_private _method access_log_middleware.report(response)
+	timestamp << date_time.now()
+	request << response.request
+	.stream.write(request.remote_address.default({}).join_as_strings("."), " ",
+		      "-", " ",  # ident
+		      "-", " ",  # user
+		      _self.date_time_format.format(timestamp), " ",
+		      request.method, " ", request.uri, " ", request.version, " ",
+		      response.status_code, " ",
+		      response.size,
+		      newline_char)
+	.stream.flush()
+_endmethod
+$
