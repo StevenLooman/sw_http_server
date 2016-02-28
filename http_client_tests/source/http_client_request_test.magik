@@ -1,0 +1,77 @@
+_package user
+$
+
+def_slotted_exemplar(
+	:http_client_request_test,
+	{},
+	{:test_case})
+$
+
+_method http_client_request_test.test_init_request_1()
+	request << http_client_request.new("www.ge.com", 80, "GET", "/")
+	
+	_self.assert(request.remote_address, :|=|, "www.ge.com")
+	_self.assert(request.remote_port,    :|=|, 80)
+	_self.assert(request.method,         :|=|, "GET")
+	_self.assert(request.uri,            :|=|, "/")
+	_self.assert(request.headers,        :|=|, http_headers.new())
+	_self.assert(request.version,        :|=|, "HTTP/1.1")
+_endmethod
+$
+
+_method http_client_request_test.test_init_request_2()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive"
+	request << http_client_request.new("www.ge.com", 80, "GET", "/", headers, "HTTP/1.0")
+	
+	_self.assert(request.remote_address, :|=|, "www.ge.com")
+	_self.assert(request.remote_port,    :|=|, 80)
+	_self.assert(request.method,         :|=|, "GET")
+	_self.assert(request.uri,            :|=|, "/")
+	_self.assert(request.headers,        :|=|, headers)
+	_self.assert(request.version,        :|=|, "HTTP/1.0")
+_endmethod
+$
+
+_method http_client_request_test.test_request_line_1()
+	request << http_client_request.new("www.ge.com", 80, "GET", "/")
+	
+	expected << "GET / HTTP/1.1" + http_client_request.crlf
+	_self.assert(request.request_line, :|=|, expected)
+_endmethod
+$
+
+_method http_client_request_test.test_request_line_2()
+	request << http_client_request.new("www.ge.com", 80, "GET", "/test")
+	
+	expected << "GET /test HTTP/1.1" + http_client_request.crlf
+	_self.assert(request.request_line, :|=|, expected)
+_endmethod
+$
+
+_method http_client_request_test.test_send_request_1()
+	request << http_client_request.new("www.ge.com", 80, "GET", "/")
+	
+	ostream << internal_text_output_stream.new()
+	request.send_request(ostream)
+	
+	expected << "GET / HTTP/1.1" + http_client_request.crlf +
+		    http_client_request.crlf
+	_self.assert(ostream.string, :|=|, expected)
+_endmethod
+$
+
+_method http_client_request_test.test_send_request_2()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive"
+	request << http_client_request.new("www.ge.com", 80, "GET", "/", headers)
+	
+	ostream << internal_text_output_stream.new()
+	request.send_request(ostream)
+	
+	expected << "GET / HTTP/1.1" + http_client_request.crlf +
+		    "Connection: Keep-Alive" + http_client_request.crlf +
+		    "" + http_client_request.crlf
+	_self.assert(ostream.string, :|=|, expected)
+_endmethod
+$

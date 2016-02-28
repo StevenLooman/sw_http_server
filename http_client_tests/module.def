@@ -1,0 +1,23 @@
+http_client_tests	1
+
+description
+	HTTP Client Tests
+end
+
+requires
+	http_client
+	munit_base
+end
+
+tests_modules
+	http_client
+end
+
+test
+	name		http_client_tests
+	framework	munit
+	args 		http_client_tests
+end
+
+hidden
+language en_gb

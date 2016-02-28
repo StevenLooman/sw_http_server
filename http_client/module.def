@@ -1,0 +1,9 @@
+http_client	1
+
+description
+	HTTP Client
+end
+
+requires
+	http_common	1
+end

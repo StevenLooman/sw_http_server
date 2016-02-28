@@ -1,0 +1,42 @@
+_package user
+$
+
+def_slotted_exemplar(
+	:http_client_response_test,
+	{},
+	{:test_case})
+$
+
+_method http_client_response_test.test_parse_response_line_1()
+	request << http_client_request.new("www.ge.com", 80, "GET", "/")
+	response << http_client_response.new_from_test(request)
+	
+	istream << internal_text_input_stream.new("HTTP/1.1 200 OK" + http_client_response.crlf)
+	response.parse_response_line(istream)
+	_self.assert(response.version, :|=|, "HTTP/1.1")
+	_self.assert(response.status_code, :|=|, "200")
+	_self.assert(response.status_reason, :|=|, "OK")
+_endmethod
+$
+
+_method http_client_response_test.test_parse_response_line_2()
+	request << http_client_request.new("www.ge.com", 80, "GET", "/")
+	response << http_client_response.new_from_test(request)
+	
+	istream << internal_text_input_stream.new(http_client_response.crlf)
+	_self.assert_raised_condition(:http_client_invalid_response, response, :|parse_response_line()|, {istream})
+_endmethod
+$
+
+_method http_client_response_test.test_parse_headers_1()
+	request << http_client_request.new("www.ge.com", 80, "GET", "/")
+	response << http_client_response.new_from_test(request)
+	
+	istream << internal_text_input_stream.new("Connection: Keep-Alive" + http_client_response.crlf)
+	response.parse_headers(istream)
+	
+	expected << http_headers.new()
+	expected["Connection"] << "Keep-Alive"
+	_self.assert(response.headers, :|=|, expected)
+_endmethod
+$

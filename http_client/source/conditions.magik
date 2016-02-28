@@ -1,0 +1,9 @@
+_block
+	condition.define_condition(:http_client_information, :information, {})
+	condition.define_condition(:http_client_warning, :warning, {})
+	condition.define_condition(:http_client_error, :error, {})
+	
+	condition.define_condition(:http_client_remote_address_unresolvable, :http_client_error, {:host, :string})
+	condition.define_condition(:http_client_invalid_response, :http_client_error, {})
+_endblock
+$

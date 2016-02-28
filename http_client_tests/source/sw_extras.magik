@@ -1,0 +1,100 @@
+_package user
+$
+
+_method internal_text_input_stream.get_line()
+	##
+	## Mimic external_text_input_stream, strips linefeed_chars
+	##
+	l << _self.all_up_to(newline_char)
+	ending << write_string("*", character.from_value(13))
+	_if l.matches?(ending)
+	_then
+		_return l.subseq(1, l.size - 1)
+	_endif
+	_return l
+_endmethod
+$
+
+
+_method internal_text_output_stream.put_ascii_chars(charvec, _optional start, length)
+	start << start.default(1)
+	length << length.default(charvec.size - start + 1)
+	_for i _over range(start, start + length - 1)
+	_loop
+		_self.write(charvec[i])
+	_endloop
+_endmethod
+$
+
+
+
+# experimental, might be useful later on, don't commit for now
+
+def_slotted_exemplar(
+	:internal_binary_output_stream,
+	{
+		{:buffer, _unset, :readable, :public},
+		{:buffer_index, _unset}
+	},
+	:binary_buffered_output_stream)
+$
+
+_method internal_binary_output_stream.new(_optional buffer_size)
+	_return _clone.init(buffer_size)
+_endmethod
+$
+
+_method internal_binary_output_stream.init(_optional buffer_size)
+	size << buffer_size.default(10240)
+	.buffer << byte_vector.new(size)
+	.buffer_index << 1
+	_return _self
+_endmethod
+$
+
+_method internal_binary_output_stream.put_ascii_chars(charvec, _optional start, length)
+	start << start.default(1)
+	length << length.default(charvec.size - start + 1)
+	_for i _over range(start, start + length - 1)
+	_loop
+		_self.put_unsigned_byte(charvec[i].value)
+	_endloop
+_endmethod
+$
+
+_method internal_binary_output_stream.put(item)
+	.buffer[.buffer_index] << item
+	.buffer_index +<< 1
+_endmethod
+$
+
+_method internal_binary_output_stream.put_subseq(source, _optional start, length)
+	start  << .buffer_index + start.default(1) - 1
+	length << length.default(source.size)
+	end    << start + length - 1
+	
+	# just copy everything
+	.buffer.deposit_binary_vector(start, end, source)
+	.buffer_index +<< length
+_endmethod
+$
+
+_method internal_binary_output_stream.flush()
+	
+_endmethod
+$
+
+_method internal_binary_output_stream.data
+	_return .buffer.subseq(1, .buffer_index - 1)
+_endmethod
+$
+
+_method internal_binary_output_stream.data_as_string
+	str << ""
+	_for i _over _self.data.fast_elements()
+	_loop
+		str << write_string(str, character.from_value(i))
+	_endloop
+	_return str
+_endmethod
+$

@@ -1,0 +1,130 @@
+def_slotted_exemplar(
+	:http_client_response,
+	{
+		{:request, _unset, :readable, :public},
+		{:in_stream, _unset, :readable, :private},
+		{:version, _unset, :readable, :public},
+		{:status_code,  _unset, :readable, :public},
+		{:status_reason, _unset, :readable, :public},
+		{:headers, _unset, :readable, :public},
+		{:connection, _unset}
+	})
+$
+
+http_client_response.define_shared_constant(
+	:crlf,
+	character.from_value(13) + character.from_value(10),
+	:public)
+$
+
+_method http_client_response.new_from_request(request, connection)
+	_return _clone.init_from_request(request, connection)
+_endmethod
+$
+
+_method http_client_response.new_from_test(request)
+	_return _clone.init_from_test(request)
+_endmethod
+$
+
+_private _method http_client_response.init(request, connection)
+	.request << request
+	.connection << connection
+	.headers << http_headers.new()
+	_return _self
+_endmethod
+$
+
+_private _method http_client_response.init_from_test(request)
+	_return _self.init(request, _unset)
+_endmethod
+$
+
+_private _method http_client_response.init_from_request(request, connection)
+	_self.init(request, connection)
+	
+	# handle connection
+	_self.parse_response(connection.input)
+	
+	_return _self
+_endmethod
+$
+
+_method http_client_response.parse_response(in_stream)
+	_self.parse_response_line(in_stream)
+	_self.parse_headers(in_stream)
+_endmethod
+$
+
+_method http_client_response.parse_response_line(in_stream)
+	line << _self.read_line(in_stream)
+	_if line _is _unset _orif
+	    line.empty?
+	_then
+		condition.raise(:http_client_invalid_response)
+	_endif
+	
+	items << line.split_by(% )
+	
+	# ensure valid request
+	_if items.size <> 3
+	_then
+		condition.raise(:http_client_invalid_response)
+	_endif
+	
+	.version       << items[1]
+	.status_code   << items[2]
+	.status_reason << items[3]
+_endmethod
+$
+
+_method http_client_response.parse_headers(in_stream)
+	.headers.read_from_stream(in_stream)
+_endmethod
+$
+
+_method http_client_response.body_stream()
+	_return .connection.input
+_endmethod
+$
+
+_method http_client_response.close()
+	.connection.close()
+	.connection << _unset
+_endmethod
+$
+
+
+_private _method http_client_response.read_line(in_stream)
+	buffer << rope.new()
+	_loop
+		# get and convert character
+		item << in_stream.get()
+		_if item _is _unset
+		_then
+			_leave
+		_endif
+		char << _if _not item.is_kind_of?(character)
+			_then
+				>> item.as_character()
+			_else
+				>> item
+			_endif
+		buffer.add(char)
+		
+		_if buffer.size < http_headers.crlf.size
+		_then
+			_continue
+		_endif
+		
+		# did we read a full line?
+		end << char16_vector.new_from(buffer.subseq(buffer.size - 1))
+		_if end = http_headers.crlf
+		_then
+			buffer << buffer.subseq(1, buffer.size - http_headers.crlf.size)
+			_leave
+		_endif
+	_endloop
+	_return char16_vector.new_from(buffer)
+_endmethod
+$

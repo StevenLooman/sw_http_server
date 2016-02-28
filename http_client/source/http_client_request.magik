@@ -1,0 +1,90 @@
+def_slotted_exemplar(
+	:http_client_request,
+	{
+		{:out_stream, _unset},
+		{:remote_address, _unset, :readable, :public},
+		{:remote_port, _unset, :readable, :public},
+		{:method, _unset, :readable, :public},
+		{:uri, _unset, :readable, :public},
+		{:version, _unset, :readable, :public},
+		{:headers, _unset, :readable, :public},
+		{:connection, _unset}
+	})
+$
+
+http_client_request.define_shared_constant(
+	:crlf,
+	character.from_value(13) + character.from_value(10),
+	:public)
+$
+
+_method http_client_request.new(host, port, method, uri, _optional headers, version)
+	_return _clone.init(host, port, method, uri, headers, version)
+_endmethod
+$
+
+_private _method http_client_request.init(host, port, method, uri, headers, version)
+	.remote_address << host
+	.remote_port << port
+	.method << method
+	.uri << uri
+	.headers << _if headers _isnt _unset
+		    _then
+			    >> headers
+		    _else
+			    >> http_headers.new()
+		    _endif
+	.version << version.default("HTTP/1.1")
+	
+	_return _self
+_endmethod
+$
+
+_method http_client_request.request_line
+	line << write_string(.method, " ", .uri, " ", .version, _self.crlf)
+	_return line
+_endmethod
+$
+
+_method http_client_request.send_request(stream)
+	stream.put_ascii_chars(_self.request_line)
+	.headers.write_to_stream(stream)
+	stream.put_ascii_chars(_self.crlf)
+_endmethod
+$
+
+_method http_client_request.figure_address(address)
+	_if address.is_kind_of?(byte_vector)
+	_then
+		_return address
+	_elif address.is_kind_of?(ro_simple_charindex_mixin)
+	_then
+		v << system.get_host_by_name(address)
+		_return v[1]
+	_endif
+_endmethod
+$
+
+_method http_client_request.connect()
+	address << _self.figure_address(.remote_address)
+	_if address _is _unset
+	_then
+		condition.raise(:http_client_remote_address_unresolvable, :host, .remote_address)
+	_endif
+	.connection << tcpip_connection.new(address, .remote_port,
+					    :output_class, external_binary_output_stream,
+					    :input_class, external_binary_input_stream)
+	
+	# connected... send payload
+	_self.send_request(.connection.output)
+	
+	# let http_client_response handle the rest
+	_return http_client_response.new_from_request(_self, .connection)
+_endmethod
+$
+
+_method http_client_request.close()
+	.connection.close()
+	.connection << _unset
+_endmethod
+$
