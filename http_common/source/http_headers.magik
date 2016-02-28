@@ -1,0 +1,227 @@
+def_slotted_exemplar(
+	:http_headers,
+	{
+		{:headers, _unset}
+	})
+$
+
+http_headers.define_shared_constant(
+	:crlf,
+	character.from_value(13) + character.from_value(10),
+	:public)
+$
+
+_method http_headers.new()
+	_return _clone.init()
+_endmethod
+$
+
+_private _method http_headers.init()
+	.headers << equality_property_list.new()
+	_return _self
+_endmethod
+$
+
+_method http_headers.new_with(_gather keys_and_values)
+	_return _clone.init_with(_scatter keys_and_values)
+_endmethod
+$
+
+_private _method http_headers.init_with(_gather keys_and_values)
+	.headers << equality_property_list.new_with(_scatter keys_and_values)
+	_return _self
+_endmethod
+$
+
+
+_method http_headers.get_header(key)
+	key << key.write_string.lowercase
+	
+	_for header_key, header_value _over .headers.fast_keys_and_elements()
+	_loop
+		_if header_key.lowercase = key
+		_then
+			_return header_value
+		_endif
+	_endloop
+_endmethod
+$
+
+_method http_headers[key]
+	_return _self.get_header(key)
+_endmethod
+$
+
+_method http_headers.set_header(key, value)
+	key << key.write_string
+	
+	# clear old header, need to do this explicitly to ensure we
+	# don't end up with two headers with the same key, but
+	# different capitalization
+	_for existing_key _over .headers.fast_keys()
+	_loop
+		_if existing_key.lowercase = key.lowercase
+		_then
+			.headers.remove_key(existing_key)
+		_endif
+	_endloop
+	
+	.headers[key] << value
+_endmethod
+$
+
+_method http_headers[key] << value
+	_return _self.set_header(key, value)
+_endmethod
+$
+
+
+_method http_headers.keys
+	_return .headers.keys
+_endmethod
+$
+
+_iter _method http_headers.headers()
+	_for key, value _over .headers.fast_keys_and_elements()
+	_loop
+		_loopbody(key, value)
+	_endloop
+_endmethod
+$
+
+
+_method http_headers.has_header?(key)
+	key << key.write_string.lowercase
+	_for header_key _over .headers.fast_keys()
+	_loop
+		_if header_key.lowercase = key
+		_then
+			_return _true
+		_endif
+	_endloop
+	_return _false
+_endmethod
+$
+
+
+
+_method http_headers.read_from_stream(stream)
+	_loop
+		line << _self.read_line(stream)
+		_if line = "" _orif
+		    line _is _unset
+		_then
+			_leave
+		_endif
+		
+		(key, value) << _self.parse_header(line)
+		.headers[key] << value
+	_endloop	 
+_endmethod
+$
+
+_private _method http_headers.parse_header(line)
+	index << line.index_of(%:)
+	_if index _is _unset
+	_then
+		_return
+	_endif
+	key << line.subseq(1, index - 1)
+	value << line.subseq(index + 1)
+	_if value[1] _is %space
+	_then
+		value << value.subseq(2)
+	_endif
+	
+	_return key, value
+_endmethod
+$
+
+
+_method http_headers.write_to_stream(stream)
+	_for key, value _over .headers.fast_keys_and_elements()
+	_loop
+		line << write_string(key, ": ", value, _self.crlf)
+		stream.put_ascii_chars(line)
+	_endloop
+_endmethod
+$
+
+
+_method http_headers.equals?(other)
+	_if other _is _unset _orif
+	    _not other.is_kind_of?(_self) _orif
+	    _self.keys.size <> other.keys.size
+	_then
+		_return _false
+	_endif
+	
+	# compare headers, ignoring key-case
+	_for header_key _over _self.keys.fast_elements()
+	_loop
+		_if _not other.has_header?(header_key)
+		_then
+			_return _false
+		_endif
+		
+		_if _self[header_key] <> other[header_key]
+		_then
+			_return _false
+		_endif
+	_endloop
+	
+	_return _true
+_endmethod
+$
+
+define_binary_operator_case(:|=|, http_headers, http_headers, _proc @eq_http_headers_http_headers(a, b)
+								      _return a.equals?(b)
+			    _endproc)
+$
+
+
+_method http_headers.print_on(a_stream)
+	_self.write_on(a_stream)
+	a_stream.write(newline_char)
+	
+	_for key, value _over _self.headers()
+	_loop
+		a_stream.write(tab_char, key, ":", tab_char, value)
+	_endloop
+_endmethod
+$
+
+
+_private _method http_headers.read_line(in_stream)
+	buffer << rope.new()
+	_loop
+		# get and convert character
+		item << in_stream.get()
+		_if item _is _unset
+		_then
+			_leave
+		_endif
+		char << _if _not item.is_kind_of?(character)
+			_then
+				>> item.as_character()
+			_else
+				>> item
+			_endif
+		buffer.add(char)
+		
+		_if buffer.size < http_headers.crlf.size
+		_then
+			_continue
+		_endif
+		
+		# did we read a full line?
+		end << char16_vector.new_from(buffer.subseq(buffer.size - 1))
+		_if end = http_headers.crlf
+		_then
+			buffer << buffer.subseq(1, buffer.size - http_headers.crlf.size)
+			_leave
+		_endif
+	_endloop
+	_return char16_vector.new_from(buffer)
+_endmethod
+$

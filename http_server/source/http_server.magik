@@ -72,8 +72,8 @@ _endmethod
 $
 
 _method http_server.handle_single_request(connection, handler)
-	_handling http_server_error _with _self.http_server_error_handler(connection)
-	_handling error             _with _self.error_handler(connection)
+	_handling http_server_status_error _with _self.http_server_status_error_handler(connection)
+	_handling error                    _with _self.error_handler(connection)
 	_dynamic !current_http_request!, !current_http_response!
 	
 	# build request
@@ -96,8 +96,8 @@ _method http_server.handle_single_request(connection, handler)
 _endmethod
 $
 
-_private _method http_server.http_server_error_handler(connection)
-	_return _proc @http_server_error_handler(cond)
+_private _method http_server.http_server_status_error_handler(connection)
+	_return _proc @http_server_status_error_handler(cond)
 			stream << internal_text_output_stream.new()
 			!traceback!(stream)
 			str << stream.string

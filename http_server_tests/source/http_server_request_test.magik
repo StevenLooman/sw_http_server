@@ -7,15 +7,9 @@ def_slotted_exemplar(
 	{:test_case})
 $
 
-http_server_request_test.define_shared_constant(
-	:crlf,
-	character.from_value(13) + character.from_value(10),
-	:public)
-$
-
 _method http_server_request_test.test_parse_request_1()
-	data << write_string("GET / HTTP/1.1", _self.crlf,
-			     "", _self.crlf)
+	data << write_string("GET / HTTP/1.1", http_server_request.crlf,
+			     "", http_server_request.crlf)
 	in << internal_text_input_stream.new(data)
 	
 	request << http_server_request.new(in)
@@ -26,9 +20,9 @@ _endmethod
 $
 
 _method http_server_request_test.test_parse_request_2()
-	data << write_string("GET / HTTP/1.1", _self.crlf,
-			     "Connection:Keep-Alive", _self.crlf,
-			     "", _self.crlf)
+	data << write_string("GET / HTTP/1.1", http_server_request.crlf,
+			     "Connection:Keep-Alive", http_server_request.crlf,
+			     "", http_server_request.crlf)
 	in << internal_text_input_stream.new(data)
 	
 	request << http_server_request.new(in)
@@ -41,7 +35,7 @@ _endmethod
 $
 
 _method http_server_request_test.test_parse_invalid_request_1()
-	data << write_string("", _self.crlf)
+	data << write_string("", http_server_request.crlf)
 	in << internal_text_input_stream.new(data)
 	
 	_self.assert_raised_condition(:http_server_error, http_server_request, :|new()|, {in})
@@ -49,8 +43,8 @@ _endmethod
 $
 
 _method http_server_request_test.test_parse_invalid_request_2()
-	data << write_string("GET HTTP/1.1", _self.crlf,
-			     "", _self.crlf)
+	data << write_string("GET HTTP/1.1", http_server_request.crlf,
+			     "", http_server_request.crlf)
 	in << internal_text_input_stream.new(data)
 	
 	_self.assert_raised_condition(:http_server_error, http_server_request, :|new()|, {in})

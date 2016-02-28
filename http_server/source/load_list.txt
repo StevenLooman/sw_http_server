@@ -1,5 +1,4 @@
 conditions
-http_headers
 http_server_request
 http_server_response
 http_middlewares

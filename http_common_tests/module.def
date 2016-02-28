@@ -1,0 +1,23 @@
+http_common_tests	1
+
+description
+	HTTP Common Tests
+end
+
+requires
+	http_common
+	munit_base
+end
+
+tests_modules
+	http_common
+end
+
+test
+	name		http_common_tests
+	framework	munit
+	args 		http_common_tests
+end
+
+hidden
+language en_gb

@@ -6,6 +6,10 @@ _method internal_text_input_stream.get_line()
 	## Mimic external_text_input_stream, strips linefeed_chars
 	##
 	l << _self.all_up_to(newline_char)
+	_if l _is _unset  # end of stream
+	_then
+		_return _unset
+	_endif
 	ending << write_string("*", character.from_value(13))
 	_if l.matches?(ending)
 	_then

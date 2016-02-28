@@ -13,7 +13,7 @@ $
 http_server_response.define_shared_constant(
 	:crlf,
 	character.from_value(13) + character.from_value(10),
-	:private)
+	:public)
 $
 
 _method http_server_response.new(request, out_stream, version)
@@ -86,6 +86,7 @@ $
 
 _private _method http_server_response.send_headers()
 	.headers.write_to_stream(.out_stream)
+	.out_stream.put_ascii_chars(_self.crlf)
 _endmethod
 $
 

@@ -4,3 +4,6 @@ description
 	HTTP Server
 end
 
+requires
+	http_common	1
+end

@@ -1,0 +1,76 @@
+_package user
+$
+
+def_slotted_exemplar(
+	:http_headers_test,
+	{},
+	{:test_case})
+$
+
+_method http_headers_test.test_1()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive"
+	
+	_self.assert(headers["Connection"], :|=|, "Keep-Alive")
+_endmethod
+$
+
+_method http_headers_test.test_2()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive1"
+	headers["Connection"] << "Keep-Alive2"
+	
+	_self.assert(headers["Connection"], :|=|, "Keep-Alive2")
+_endmethod
+$
+
+_method http_headers_test.test_3()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive1"
+	headers["connection"] << "Keep-Alive2"
+	
+	_self.assert(headers["Connection"], :|=|, "Keep-Alive2")
+_endmethod
+$
+
+_method http_headers_test.test_4()
+	headers1 << http_headers.new()
+	headers1["Connection"] << "Keep-Alive"
+	headers2 << http_headers.new()
+	headers2["connection"] << "Keep-Alive"
+	
+	_self.assert(headers1, :|=|, headers2)
+_endmethod
+$
+
+_method http_headers_test.test_5()
+	headers << http_headers.new()
+	headers[1] << "test"
+	
+	_self.assert(headers[1],   :|=|, "test")
+	_self.assert(headers["1"], :|=|, "test")
+_endmethod
+$
+
+_method http_headers_test.test_6()
+	headers << http_headers.new()
+	headers["Connection"] << "Keep-Alive"
+	
+	ostream << internal_text_output_stream.new()
+	headers.write_to_stream(ostream)
+	
+	expected << "Connection: Keep-Alive" + http_headers.crlf
+	_self.assert(ostream.string, :|=|, expected)
+_endmethod
+$
+
+_method http_headers_test.test_7()
+	headers << http_headers.new()
+	
+	ostream << internal_text_output_stream.new()
+	headers.write_to_stream(ostream)
+	
+	expected << ""
+	_self.assert(ostream.string, :|=|, expected)
+_endmethod
+$

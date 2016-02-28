@@ -15,10 +15,10 @@ $
 
 _method http_server_response_test.test_build_request_1()
 	os << internal_binary_output_stream.new()
-
-	response << http_server_response.new(os, "HTTP/1.1")
+	
+	response << http_server_response.new(_unset, os, "HTTP/1.1")
 	response.send(200, "OK")
-
+	
 	_self.assert(os.data_as_string,  :|=|, write_string("HTTP/1.1 200 OK", _self.crlf,
 							    "Content-Length: 2", _self.crlf,
 							    _self.crlf,
@@ -29,7 +29,7 @@ $
 _method http_server_response_test.test_build_request_2()
 	os << internal_binary_output_stream.new()
 	
-	response << http_server_response.new(os, "HTTP/1.1")
+	response << http_server_response.new(_unset, os, "HTTP/1.1")
 	response.headers["Connection"] << "Keep-Alive"
 	response.send(200, "OK")
 	
@@ -42,7 +42,7 @@ _endmethod
 $
 
 _method http_server_response_test.test_headers_1()
-	response << http_server_response.new(_unset, "HTTP/1.1")
+	response << http_server_response.new(_unset, _unset, "HTTP/1.1")
 	response.headers["Connection"] << "Keep-Alive"
 	
 	_self.assert(response.headers["Connection"], :|=|, "Keep-Alive")
@@ -50,7 +50,7 @@ _endmethod
 $
 
 _method http_server_response_test.test_headers_2()
-	response << http_server_response.new(_unset, "HTTP/1.1")
+	response << http_server_response.new(_unset, _unset, "HTTP/1.1")
 	response.headers["Connection"] << "Keep-Alive1"
 	response.headers["connection"] << "Keep-Alive2"
 	

@@ -12,6 +12,12 @@ def_slotted_exemplar(
 	})
 $
 
+http_server_request.define_shared_constant(
+	:crlf,
+	character.from_value(13) + character.from_value(10),
+	:public)
+$
+
 _method http_server_request.new_from_connection(connection)
 	_return _clone.init(connection.input, connection.remote_address, connection.remote_port)
 _endmethod
@@ -47,14 +53,15 @@ _private _method http_server_request.parse_request_line()
 	_if line _is _unset _orif
 	    line.empty?
 	_then
-		condition.raise(:http_server_error, :status_code, 400)
+		condition.raise(:http_server_status_error, :status_code, 400)
 	_endif
 	
 	items << line.split_by(% )
 	
 	# ensure valid request
-	_if items.size <> 3 _then
-		condition.raise(:http_server_error, :status_code, 400)
+	_if items.size <> 3
+	_then
+		condition.raise(:http_server_status_error, :status_code, 400)
 	_endif
 	
 	.method  << items[1]
