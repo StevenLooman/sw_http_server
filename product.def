@@ -1,4 +1,4 @@
-http_server layered_product
+sw_http_server layered_product
 
 title
 	HTTP Server
