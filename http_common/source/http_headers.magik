@@ -186,7 +186,7 @@ _method http_headers.print_on(a_stream)
 	
 	_for key, value _over _self.headers()
 	_loop
-		a_stream.write(tab_char, key, ":", tab_char, value)
+		a_stream.write(tab_char, key, ":", tab_char, value, newline_char)
 	_endloop
 _endmethod
 $
