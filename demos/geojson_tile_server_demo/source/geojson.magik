@@ -1,0 +1,221 @@
+_package user
+$
+
+_method ro_indexed_collection_mixin.flattened()
+	results << rope.new()
+	
+	_for i _over _self.fast_elements()
+	_loop
+		_if i.is_kind_of?(basic_collection_mixin)
+		_then
+			results.add_all_last(i)
+		_else
+			results.add_last(i)
+		_endif
+	_endloop
+	
+	_return _self.new_from(results)
+_endmethod
+$
+
+_method geometry_set_mixin.to_geojson(stream)
+	props << property_list.new_with(:type, "FeatureCollection",
+					:features, rope.new_from(_self))
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method point.to_geojson(stream)
+	props << property_list.new_with(:type,        "Feature",
+					:geometry,    property_list.new_with(:type, "Point",
+									     :coordinates, _self.coordinate),
+					:properties,  property_list.new_with(:rwo_id, _self.rwo_id,
+									     :rwo_type, _self.rwo_type,
+									     :app_type, _self.app_type))
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method simple_point.to_geojson(stream)
+	props << property_list.new_with(:type,        "Feature",
+					:geometry,    property_list.new_with(:type, "Point",
+									     :coordinates, _self.coordinate),
+					:properties,  property_list.new_with(:rwo_id, _self.rwo_id,
+									     :rwo_type, _self.rwo_type,
+									     :app_type, _self.app_type))
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method simple_chain.to_geojson(stream)
+	props << property_list.new_with(:type,        "Feature",
+					:geometry,    _self.sectors,
+					:properties,  property_list.new_with(:rwo_id, _self.rwo_id,
+									     :rwo_type, _self.rwo_type,
+									     :app_type, _self.app_type))
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method chain.to_geojson(stream)
+	props << property_list.new_with(:type,        "Feature",
+					:geometry,    _self.sectors,
+					:properties,  property_list.new_with(:rwo_id, _self.rwo_id,
+									     :rwo_type, _self.rwo_type,
+									     :app_type, _self.app_type))
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method simple_area.to_geojson(stream)
+	props << property_list.new_with(:type,       "Feature",
+					:properties,  property_list.new_with(:rwo_id, _self.rwo_id,
+									     :rwo_type, _self.rwo_type,
+									     :app_type, _self.app_type))
+	_if _self.npolygons = 1
+	_then
+		props[:geometry] << _self.polygons.first
+	_else
+		props[:geometry] << _self.polygons
+	_endif
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method area.to_geojson(stream)
+	props << property_list.new_with(:type,       "Feature",
+					:properties,  property_list.new_with(:rwo_id, _self.rwo_id,
+									     :rwo_type, _self.rwo_type,
+									     :app_type, _self.app_type))
+	_if _self.npolygons = 1
+	_then
+		props[:geometry] << _self.polygons.first
+	_else
+		props[:geometry] << _self.polygons
+	_endif
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method text.to_geojson(stream)
+	props << property_list.new_with(:type,       "Feature",
+					:geometry,   property_list.new_with(:type, "Point",
+									    :coordinates, _self.coord_1),
+					:properties, property_list.new_with(:rwo_id, _self.rwo_id,
+									    :label, _self.string,
+									    :rwo_type, _self.rwo_type,
+									    :app_type, _self.app_type))
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method sector_rope.to_geojson(stream)
+	props << _if _self.size = 1
+		 _then
+			 >> property_list.new_with(:type, "LineString",
+						   :coordinates, _self.sectors.first)
+		 _else
+			 >> property_list.new_with(:type, "MultiLineString",
+						   :coordinates, rope.new_from(_self.sectors))
+		 _endif
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method polygon_mixin.to_geojson(stream)
+	coords << rope.new()
+	
+	# outer
+	coords.add_last(rope.new_from(_self.sectors).flattened())
+	
+	# inner
+	_for hole _over _self.holes()
+	_loop
+		props[:coordinates].add_last(rope.new_from(hole.sectors))
+	_endloop
+	
+	props << property_list.new_with(:type, "Polygon",
+					:coordinates, coords)
+	props.to_geojson(stream)
+_endmethod
+$
+
+_method coordinate.to_geojson(stream)
+	stream.write("[", _self.x, ",", _self.y, "]")
+_endmethod
+$
+
+_method coordinate2h.to_geojson(stream)
+	stream.write("[", _self.x, ",", _self.y, "]")
+_endmethod
+$
+
+_method circle.to_geojson(stream)
+	condition.raise(:not_implemented)
+_endmethod
+$
+
+_method arc.to_geojson(stream)
+	_constant tolerance << 500
+	faceted << _self.faceted(tolerance)
+	faceted.to_geojson(stream)
+_endmethod
+$
+
+_method indexed_collection_mixin.to_geojson(stream)
+	stream.write("[")
+	first? << _true
+	_for i _over _self.fast_elements()
+	_loop
+		_if first?
+		_then
+			first? << _false
+		_else
+			stream.write(",")
+		_endif
+		i.to_geojson(stream)
+	_endloop
+	stream.write("]")
+_endmethod
+$
+
+_method externally_keyed_collection_mixin.to_geojson(stream)
+	stream.write("{")
+	
+	first? << _true
+	_for key, element _over _self.fast_keys_and_elements()
+	_loop
+		_if first?
+		_then
+			first? << _false
+		_else
+			stream.write(%,)
+		_endif
+		
+		stream.write(%", write_string(key), %", %:)
+		element.to_geojson(stream)
+	_endloop
+	
+	stream.write("}")
+_endmethod
+$
+
+_method char16_vector.to_geojson(stream)
+	stream.write(%", _self, %")
+_endmethod
+$
+
+_method simple_number_mixin.to_geojson(stream)
+	stream.write(_self)
+_endmethod
+$
+
+_method character.to_geojson(stream)
+	stream.write(%", _self, %")
+_endmethod
+$
+
+_method symbol.to_geojson(stream)
+	stream.write(%", _self, %")
+_endmethod
+$

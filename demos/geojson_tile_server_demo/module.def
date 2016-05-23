@@ -1,0 +1,9 @@
+geojson_tile_server_demo	1
+
+description
+	Demo showing a raster tile server which serves GeoJSON and provides a client to view them
+end
+
+requires
+	tile_server_demo_base
+end

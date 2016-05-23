@@ -1,0 +1,35 @@
+_package user
+$
+
+_block
+	_if _not sw_module_manager.module(:geojson_tile_server_demo).loaded?
+	_then
+		sw_module_manager.load_module(:geojson_tile_server_demo)
+	_endif
+_endblock
+$
+
+_block
+	_handling error, warning, information _with _proc(e)
+				      e.print_on(!terminal!)
+				      !traceback!(!terminal!)
+	_endproc
+	
+	_protect
+		http_app << http_application.new()
+		http_app.add_middleware(http_params_parser.new())
+		http_app.add_middleware(access_log_middleware.new(!output!))
+		http_app.add_route(stop_route.new(:get, "/stop"))
+		http_app.add_route(file_server_route.new(:get, "/client/*", system.pathname_down(system.pathname_up(!source_file!), "resources\base\data\client")))
+		http_app.add_route(geojson_tile_server_route.new(:get, "/geojson_tile", :gis, :|Electricity|))
+		write("To start the client, browse to: http://localhost:8085/client/index.html#16.18/52.20708/0.11937")
+		write("To stop the server, browse to: http://localhost:8085/stop")
+		http_app.listen(8085, _false)
+	_protection
+		_if http_app _isnt _unset
+		_then
+			http_app.stop()
+		_endif
+	_endprotect
+_endblock
+$
