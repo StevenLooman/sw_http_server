@@ -74,3 +74,25 @@ _method http_headers_test.test_7()
 	_self.assert(ostream.string, :|=|, expected)
 _endmethod
 $
+
+_method http_headers_test.test_http_1()
+	headers << http_headers.new()
+	
+	stream << internal_text_input_stream.new(write_string("Connection: Keep-Alive", %newline, %newline))
+	headers.read_from_stream(stream)
+	
+	_self.assert(headers["connection"], :|=|, "Keep-Alive")
+_endmethod
+$
+
+_method http_headers_test.test_http_2()
+	headers << http_headers.new()
+	
+	stream << internal_text_input_stream.new(write_string("Connection: Keep-Alive", %newline,
+							      "Host: localhost", %newline, %newline))
+	headers.read_from_stream(stream)
+	
+	_self.assert(headers["connection"], :|=|, "Keep-Alive")
+	_self.assert(headers["host"], :|=|, "localhost")
+_endmethod
+$

@@ -11,6 +11,12 @@ http_headers.define_shared_constant(
 	:public)
 $
 
+http_headers.define_shared_constant(
+	:lflf,
+	character.from_value(10) + character.from_value(10),
+	:public)
+$
+
 _method http_headers.new()
 	_return _clone.init()
 _endmethod
@@ -108,8 +114,8 @@ $
 _method http_headers.read_from_stream(stream)
 	_loop
 		line << _self.read_line(stream)
-		_if line = "" _orif
-		    line _is _unset
+		_if line _is _unset _orif
+		    line.empty?
 		_then
 			_leave
 		_endif
@@ -209,18 +215,29 @@ _private _method http_headers.read_line(in_stream)
 			_endif
 		buffer.add(char)
 		
-		_if buffer.size < http_headers.crlf.size
-		_then
-			_continue
-		_endif
+#		_if buffer.size < http_headers.crlf.size
+#		_then
+#			_continue
+#		_endif
 		
 		# did we read a full line?
-		end << char16_vector.new_from(buffer.subseq(buffer.size - 1))
-		_if end = http_headers.crlf
+		_if buffer.last = %newline
 		_then
-			buffer << buffer.subseq(1, buffer.size - http_headers.crlf.size)
+			buffer << buffer.subseq(1, buffer.size - 1)
+			_if _not buffer.empty? _andif
+			    buffer.last = %return
+			_then
+				buffer << buffer.subseq(1, buffer.size - 1)
+			_endif
 			_leave
 		_endif
+#		end << char16_vector.new_from(buffer.subseq(buffer.size - 1))
+#		_if end = http_headers.crlf _orif
+#		    end = http_headers.lf
+#		_then
+#			buffer << buffer.subseq(1, buffer.size - http_headers.crlf.size)
+#			_leave
+#		_endif
 	_endloop
 	_return char16_vector.new_from(buffer)
 _endmethod
