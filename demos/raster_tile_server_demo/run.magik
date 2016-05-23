@@ -22,6 +22,8 @@ _block
 		http_app.add_route(stop_route.new(:get, "/stop"))
 		http_app.add_route(file_server_route.new(:get, "/client/*", system.pathname_down(system.pathname_up(!source_file!), "resources\base\data\client")))
 		http_app.add_route(raster_tile_server_route.new(:get, "/raster_tile", :gis, :|Electricity|))
+		write("To start the client, browse to: http://localhost:8085/client/index.html")
+		write("To stop the server, browse to: http://localhost:8085/stop")
 		http_app.listen(8085, _false)
 	_protection
 		_if http_app _isnt _unset
