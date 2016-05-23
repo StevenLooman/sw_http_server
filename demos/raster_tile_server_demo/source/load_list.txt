@@ -1,11 +1,1 @@
-map_view
-number_mixin
-
-instant_render_controller
-
-access_log_middleware
-google_projection
-guiless_map_manager
-file_server_route
 raster_tile_server_route
-stop_route

@@ -5,6 +5,5 @@ description
 end
 
 requires
-	http_server
-	cam_db_swaf_professional_application
+	tile_server_demo_base
 end

@@ -4,149 +4,24 @@ $
 def_slotted_exemplar(
 	:raster_tile_server_route,
 	{
-		{:application, _unset, :readable, :public}
 	},
-	:http_route)
+	:abstract_tile_server_route)
 $
 
-_method raster_tile_server_route.new(method, path, soc_name, ace_name)
-	_return _clone.init(method, path, soc_name, ace_name)
-_endmethod
-$
-
-_private _method raster_tile_server_route.init(method, path, soc_name, ace_name)
-	_super.init(method, path)
-	_self.init_application(soc_name, ace_name)
-	_return _self
-_endmethod
-$
-
-raster_tile_server_route.define_shared_constant(
-	:tile_size,
-	{256, 256},
-	:public)
-$
-
-_private _method raster_tile_server_route.init_application(soc_name, ace_name)
-	# build application
-	.application << application.new(soc_name, :application_name, :render_tile_app)
-	plugin_cfg << plugin_configuration.new(_unset,  _unset, _unset)
-	
-	.application.add_plugin(:maps, :guiless_map_manager, plugin_cfg)
-	maps  << .application.plugin(:maps)
-	
-	.application.add_plugin(:mapper, :viewport_mapping_plugin, plugin_cfg)  # XXX TODO: is this needed?
-	.application.plugin(:mapper).set_map_manager(maps)
-	
-	# build map view
-	world    << .application.get_application_world(0, 0)
-	map_view << maps.new_map_view(ace_name, world)
-	map_view.sys!slot(:controller) << instant_render_controller.new(map_view)
-	.application.plugin(:maps).current_map_view << map_view
-	
-	render_canvas << memory_canvas.new(_scatter _self.tile_size)
-	map_view.sys!slot(:current_view_parameters) << _unset  # prevent unneccessary render
-	map_view.set_rendering_surface(render_canvas)
-	map_view.sys!slot(:current_view_parameters) << swaf_map_view_definition.new(pseudo_point.new(coordinate.new(0, 0)), 1500, 0, _self.app_cs_3857)
-_endmethod
-$
-
-_method raster_tile_server_route.app_cs_4326
-	projs << .application.projections()
-	_return projs.all_elements_satisfying(predicate.eq(:name, "world_longlat_wgs84_mm")).an_element()
-_endmethod
-$
-
-_method raster_tile_server_route.app_cs_3857
-	projs << .application.projections()
-	_return projs.all_elements_satisfying(predicate.eq(:name, "world_popular_visualisation_spherical_mm")).an_element()
-_endmethod
-$
-
-raster_tile_server_route.define_shared_constant(
-	:cs_3857,
-	coordinate_system.new_proj_long_lat(:wgs84, :m),
-	:public)
-$
-
-raster_tile_server_route.define_shared_constant(
-	:cs_4326,
-	coordinate_system.new_proj_long_lat(:wgs84, :degree),
-	:public)
-$
-
-raster_tile_server_route.define_shared_constant(
-	:cs_27700_mm,
-	coordinate_system.new_proj_bng_mm(),
-	:public)
-$
-
-raster_tile_server_route.define_shared_constant(
-	:tf_4326_27700,
-	transform.new_converting_cs_to_cs(raster_tile_server_route.cs_4326, raster_tile_server_route.cs_27700_mm),
-	:public)
-$
-
-raster_tile_server_route.define_shared_constant(
-	:tf_4326_3857,
-	transform.new_converting_cs_to_cs(raster_tile_server_route.cs_4326, raster_tile_server_route.cs_3857),
-	:public)
-$
-
-_private _method raster_tile_server_route.parse_tile(request)
-	zoom << request.data[:form]["zoom"].as_number()
-	x << request.data[:form]["x"].as_number()
-	y << request.data[:form]["y"].as_number()
-	
-	_if zoom _is _unset _orif
-	    x _is _unset _orif
-	    y _is _unset
-	_then
-		condition.raise(:http_server_error, :status_code, 400)
-	_endif
-	
-	_return {zoom, x, y}
-_endmethod
-$
-
-_method raster_tile_server_route.handle(application, request, response)
-	tile << _self.parse_tile(request)
-	view_def << _self.build_view_def(tile)
-	_self.render_tile(view_def)
-	_self.send_tile(response)
-_endmethod
-$
-
-_private _method raster_tile_server_route.render_tile(view_def)
+_private _method raster_tile_server_route.write_to_file(filename)
 	map_view << .application.plugin(:maps).current_map_view
-	map_view.set_view(view_def)
-_endmethod
-$
-
-_method raster_tile_server_route.build_view_def(tile)
-	bb_4326 << google_projection.from_tile_to_ll_bounds(_scatter tile)
-	center_27700  << _self.tf_4326_27700.convert(bb_4326.centre)
 	
-	bb_3857 << _self.tf_4326_3857.convert_bounding_box(bb_4326)
-	scale_w << _self.tile_size[1] / bb_3857.width / 1000
-	scale_h << _self.tile_size[2] / bb_3857.height / 1000
-	scale << 1.0 / min(scale_w, scale_h)
-	
-	rotation << 0
-	
-	view_def << swaf_map_view_definition.new(center_27700, scale, rotation, _self.app_cs_3857)
-	_return view_def
+	# write tile to file
+	render_canvas << map_view.window
+	render_canvas.write_to_file(filename, :png)
 _endmethod
 $
 
 _private _method raster_tile_server_route.send_tile(response)
-	map_view << .application.plugin(:maps).current_map_view
+	tmp_file << system.temp_file_name("tile.png")
+	_self.write_to_file(tmp_file)
 	
 	# send response
-	render_canvas << map_view.window
-	tmp_file << system.temp_file_name("tile.png")
-	render_canvas.write_to_file(tmp_file, :png)
-	
 	ss << external_binary_input_stream.new(tmp_file)
 	response.headers["Content-Type"] << "image/png"
 	response.send(200, ss)
@@ -156,25 +31,11 @@ _private _method raster_tile_server_route.send_tile(response)
 _endmethod
 $
 
-
-# Debug methods
-_method raster_tile_server_route.handle_static(zoom, x, y)
-	tile << {zoom, x, y}
-	view_def << _self.build_view_def(tile)
-	_self.render_tile(view_def)
-	_self.open_tile()
-_endmethod
-$
-
 _private _method raster_tile_server_route.open_tile()
-	map_view << .application.plugin(:maps).current_map_view
-	
-	# write response to file
-	render_canvas << map_view.window
 	tmp_file << system.temp_file_name("tile.png")
-	render_canvas.write_to_file(tmp_file, :png)
+	_self.write_to_file(tmp_file)
 	
-	#system.unlink(tmp_file, _true)
 	system.start_command("start " + tmp_file)
+	#system.unlink(tmp_file, _true)
 _endmethod
 $

@@ -1,0 +1,9 @@
+tile_server_demo_base	1
+
+description
+	Base for tile server demos
+end
+
+requires
+	cam_db_swaf_professional_application
+end
