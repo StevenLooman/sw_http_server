@@ -23,10 +23,10 @@ $
 
 _method http_server.cycle(what)
 	.count +<< 1
-	_if .count > 2500
-	_then
-		.stop << _true
-	_endif
+#	_if .count > 200
+#	_then
+#		.stop << _true
+#	_endif
 _endmethod
 $
 
