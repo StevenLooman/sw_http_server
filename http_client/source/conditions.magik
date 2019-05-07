@@ -1,3 +1,5 @@
+_package user
+
 _block
 	condition.define_condition(:http_client_information, :information, {})
 	condition.define_condition(:http_client_warning, :warning, {})
